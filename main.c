@@ -33,6 +33,11 @@ static void print_children(const Aids_Array *children, size_t indent_level) {
 
 static void print_phrasing_content(const Markdown_Phrasing_Content *content, size_t indent_level) {
     switch (content->kind) {
+        case MD_EMPHASIS:
+            print_indentation(indent_level); printf("Emphasis:\n");
+            print_indentation(indent_level + 1); printf("Children:\n");
+            print_children(&content->emphasis.children, indent_level + 2);
+            break;
         case MD_LINK:
             print_indentation(indent_level); printf("Link:\n");
             print_indentation(indent_level + 1); printf("Children:\n");
@@ -44,11 +49,16 @@ static void print_phrasing_content(const Markdown_Phrasing_Content *content, siz
                 print_indentation(indent_level + 1); printf("Title: (none)\n");
             }
             break;
+        case MD_STRONG:
+            print_indentation(indent_level); printf("Strong:\n");
+            print_indentation(indent_level + 1); printf("Children:\n");
+            print_children(&content->strong.children, indent_level + 2);
+            break;
         case MD_TEXT:
             print_text(&content->text, indent_level);
             break;
         default:
-            aids_log(AIDS_ERROR, "Unknown phrasing content kind");
+            aids_log(AIDS_ERROR, "Unknown phrasing content kind %d", content->kind);
             exit(EXIT_FAILURE);
     }
 }
