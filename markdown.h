@@ -14,6 +14,12 @@
 #include "aids.h"
 
 typedef struct {
+    Aids_String_Slice lang; /* Optional */
+    Aids_String_Slice meta; /* Optional */
+    Aids_String_Slice value;
+} Markdown_Code;
+
+typedef struct {
     Aids_Array children; /* Markdown_Phrasing_Content */
 } Markdown_Emphasis;
 
@@ -21,6 +27,10 @@ typedef struct {
     unsigned long depth;
     Aids_Array children; /* Markdown_Phrasing_Content */
 } Markdown_Heading;
+
+typedef struct {
+    Aids_String_Slice value;
+} Markdown_Inline_Code;
 
 typedef struct {
     Aids_String_Slice url;
@@ -47,6 +57,7 @@ typedef struct {
 } Markdown_Text;
 
 typedef enum {
+    MD_CODE,
     MD_HEADING,
     MD_PARAGRAPH,
 } Markdown_Flow_Content_Kind;
@@ -54,6 +65,7 @@ typedef enum {
 typedef struct {
     Markdown_Flow_Content_Kind kind;
     union {
+        Markdown_Code code;
         Markdown_Heading heading;
         Markdown_Paragraph paragraph;
     };
@@ -61,6 +73,7 @@ typedef struct {
 
 typedef enum {
     MD_EMPHASIS,
+    MD_INLINE_CODE,
     MD_LINK,
     MD_STRONG,
     MD_TEXT,
@@ -70,6 +83,7 @@ typedef struct {
     Markdown_Phrasing_Content_Kind kind;
     union {
         Markdown_Emphasis emphasis;
+        Markdown_Inline_Code inline_code;
         Markdown_Link link;
         Markdown_Strong strong;
         Markdown_Text text;
@@ -91,11 +105,19 @@ static char markdown_peek(Aids_String_Slice *input) {
 }
 
 static char markdown_peek2(Aids_String_Slice *input) {
-    if (input->len == 1) {
+    if (input->len <= 1) {
         return EOF;
     }
 
     return input->str[1];
+}
+
+static char markdown_peek3(Aids_String_Slice *input) {
+    if (input->len <= 2) {
+        return EOF;
+    }
+
+    return input->str[2];
 }
 
 static char markdown_read(Aids_String_Slice *input) {
@@ -105,6 +127,35 @@ static char markdown_read(Aids_String_Slice *input) {
 }
 
 static void markdown_parse_phrasing_content(Aids_String_Slice *input, Markdown_Phrasing_Content *phrasing_content);
+
+static boolean markdown_try_parse_inline_code(Aids_String_Slice *input, Markdown_Phrasing_Content *phrasing_content) {
+    phrasing_content->kind = MD_INLINE_CODE;
+
+    Aids_String_Slice iter = *input;
+    if (markdown_peek(&iter) != '`') {
+        return false;
+    }
+    aids_string_slice_skip(&iter, 1);
+
+    Aids_String_Slice content = aids_string_slice_from_parts(iter.str, 0);
+    while (iter.len > 0) {
+        char ch = markdown_peek(&iter);
+        if (ch == '`') {
+            aids_string_slice_skip(&iter, 1);
+            break;
+        } else if (ch == EOF || ch == '\n') {
+            return false;
+        } else {
+            content.len++;
+            aids_string_slice_skip(&iter, 1);
+        }
+    }
+
+    phrasing_content->inline_code.value = content;
+    *input = iter;
+
+    return true;
+}
 
 static boolean markdown_try_parse_link(Aids_String_Slice *input, Markdown_Phrasing_Content *phrasing_content) {
     phrasing_content->kind = MD_LINK;
@@ -194,7 +245,7 @@ static boolean markdown_try_parse_emphasis(Aids_String_Slice *input, Markdown_Ph
         if (ch == tag) {
             aids_string_slice_skip(&iter, 1);
             break;
-        } else if (ch == EOF) {
+        } else if (ch == EOF || ch == '`') {
             return false;
         } else {
             content.len++;
@@ -238,7 +289,7 @@ static boolean markdown_try_parse_strong(Aids_String_Slice *input, Markdown_Phra
         if (ch == tag && ch2 == tag) {
             aids_string_slice_skip(&iter, 2);
             break;
-        } else if (ch == EOF) {
+        } else if (ch == EOF || ch == '`') {
             return false;
         } else {
             content.len++;
@@ -268,7 +319,12 @@ static void markdown_parse_phrasing_content(Aids_String_Slice *input, Markdown_P
     boolean is_text = false;
     char ch = markdown_peek(input);
     char ch2 = markdown_peek2(input);
-    if (ch == '[') {
+    if (ch == '`') {
+        if (markdown_try_parse_inline_code(input, phrasing_content)) {
+            return;
+        }
+        is_text = true;
+    } else if (ch == '[') {
         if (markdown_try_parse_link(input, phrasing_content)) {
             return;
         }
@@ -301,7 +357,7 @@ static void markdown_parse_phrasing_content(Aids_String_Slice *input, Markdown_P
 
     while (input->len > 0 && markdown_peek(input) != '\n') {
         char ch = markdown_peek(input);
-        if (!is_text && (ch == '[' || ch == '*' || ch == '_')) {
+        if (!is_text && (ch == '[' || ch == '*' || ch == '_' || ch == '`')) {
             break;
         }
 
@@ -312,9 +368,62 @@ static void markdown_parse_phrasing_content(Aids_String_Slice *input, Markdown_P
     aids_string_slice_trim(&phrasing_content->text.value);
 }
 
+static boolean markdown_try_parse_code(Aids_String_Slice *input, Markdown_Code *code) {
+    Aids_String_Slice iter = *input;
+
+    char ch = markdown_peek(&iter);
+    char ch2 = markdown_peek2(&iter);
+    char ch3 = markdown_peek3(&iter);
+    if (ch != '`' || ch2 != '`' || ch3 != '`') {
+        return false;
+    }
+    aids_string_slice_skip(&iter, 3);
+
+    Aids_String_Slice lang = aids_string_slice_from_parts(iter.str, 0);
+    while (iter.len > 0 && markdown_peek(&iter) != '\n') {
+        lang.len++;
+        aids_string_slice_skip(&iter, 1);
+    }
+    aids_string_slice_trim(&lang);
+    code->lang = lang;
+
+    // TODO: Parse meta information if needed
+
+    aids_string_slice_skip(&iter, 1);
+    Aids_String_Slice value = aids_string_slice_from_parts(iter.str, 0);
+    while (true) {
+        char ch = markdown_peek(&iter);
+        if (ch == EOF) {
+            return false;
+        } else if (ch == '`' && markdown_peek2(&iter) == '`' && markdown_peek3(&iter) == '`') {
+            aids_string_slice_skip(&iter, 3);
+            break;
+        } else {
+            value.len++;
+            aids_string_slice_skip(&iter, 1);
+        }
+    }
+
+    code->value = value;
+    *input = iter;
+
+    return true;
+}
+
 static void markdown_parse_flow_content(Aids_String_Slice *input, Markdown_Flow_Content *flow_content) {
     char ch = markdown_peek(input);
-    if (ch == '#') {
+    if (ch == '`') {
+        char ch2 = markdown_peek2(input);
+        char ch3 = markdown_peek3(input);
+        if (ch2 == '`' && ch3 == '`') {
+            flow_content->kind = MD_CODE;
+            Markdown_Code *code = &flow_content->code;
+
+            if (!markdown_try_parse_code(input, code)) {
+                AIDS_TODO("Handle code parsing failure");
+            }
+        }
+    } else if (ch == '#') {
         flow_content->kind = MD_HEADING;
         Markdown_Heading *heading = &flow_content->heading;
         heading->depth = 0;
