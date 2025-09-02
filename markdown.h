@@ -436,7 +436,7 @@ static void markdown_parse_phrasing_content(Aids_String_Slice *input, Markdown_P
 
     while (input->len > 0 && markdown_peek(input) != '\n') {
         char ch = markdown_peek(input);
-        if (!is_text && (ch == '[' || ch == '*' || ch == '_' || ch == '`')) {
+        if (!is_text && (ch == '[' || ch == '*' || ch == '_' || ch == '`' || ch == '!')) {
             break;
         }
 
