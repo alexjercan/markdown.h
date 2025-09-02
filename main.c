@@ -38,6 +38,16 @@ static void print_phrasing_content(const Markdown_Phrasing_Content *content, siz
             print_indentation(indent_level + 1); printf("Children:\n");
             print_children(&content->emphasis.children, indent_level + 2);
             break;
+        case MD_IMAGE:
+            print_indentation(indent_level); printf("Image:\n");
+            print_indentation(indent_level + 1); printf("Alt Text: %.*s\n", (int)content->image.alt.len, content->image.alt.str);
+            print_indentation(indent_level + 1); printf("URL: %.*s\n", (int)content->image.url.len, content->image.url.str);
+            if (content->image.title.str != NULL) {
+                print_indentation(indent_level + 1); printf("Title: %.*s\n", (int)content->image.title.len, content->image.title.str);
+            } else {
+                print_indentation(indent_level + 1); printf("Title: (none)\n");
+            }
+            break;
         case MD_LINK:
             print_indentation(indent_level); printf("Link:\n");
             print_indentation(indent_level + 1); printf("Children:\n");
@@ -77,6 +87,9 @@ static void print_paragraph(const Markdown_Paragraph *paragraph, size_t indent_l
 
 static void print_flow_content(const Markdown_Flow_Content *flow_content, size_t indent_level) {
     switch (flow_content->kind) {
+        case MD_CODE:
+            print_indentation(indent_level); printf("Code: %.*s\n", (int)flow_content->code.value.len, flow_content->code.value.str);
+            break;
         case MD_HEADING:
             print_heading(&flow_content->heading, indent_level);
             break;

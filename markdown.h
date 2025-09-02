@@ -29,6 +29,12 @@ typedef struct {
 } Markdown_Heading;
 
 typedef struct {
+    Aids_String_Slice url;
+    Aids_String_Slice title; /* Optional */
+    Aids_String_Slice alt;
+} Markdown_Image;
+
+typedef struct {
     Aids_String_Slice value;
 } Markdown_Inline_Code;
 
@@ -73,6 +79,7 @@ typedef struct {
 
 typedef enum {
     MD_EMPHASIS,
+    MD_IMAGE,
     MD_INLINE_CODE,
     MD_LINK,
     MD_STRONG,
@@ -83,6 +90,7 @@ typedef struct {
     Markdown_Phrasing_Content_Kind kind;
     union {
         Markdown_Emphasis emphasis;
+        Markdown_Image image;
         Markdown_Inline_Code inline_code;
         Markdown_Link link;
         Markdown_Strong strong;
@@ -127,6 +135,72 @@ static char markdown_read(Aids_String_Slice *input) {
 }
 
 static void markdown_parse_phrasing_content(Aids_String_Slice *input, Markdown_Phrasing_Content *phrasing_content);
+
+static boolean markdown_try_parse_image(Aids_String_Slice *input, Markdown_Phrasing_Content *phrasing_content) {
+    phrasing_content->kind = MD_IMAGE;
+
+    Aids_String_Slice iter = *input;
+    if (markdown_peek(&iter) != '!') {
+        return false;
+    }
+    aids_string_slice_skip(&iter, 1);
+
+    if (markdown_peek(&iter) != '[') {
+        return false;
+    }
+    aids_string_slice_skip(&iter, 1);
+
+    Aids_String_Slice alt = aids_string_slice_from_parts(iter.str, 0);
+    while (iter.len > 0) {
+        if (markdown_peek(&iter) == ']') {
+            aids_string_slice_skip(&iter, 1);
+            break;
+        } else if (markdown_peek(&iter) == '[') {
+            return false;
+        } else {
+            alt.len++;
+            aids_string_slice_skip(&iter, 1);
+        }
+    }
+
+    phrasing_content->image.alt = alt;
+
+    if (markdown_peek(&iter) != '(') {
+        return false;
+    }
+    aids_string_slice_skip(&iter, 1);
+
+    Aids_String_Slice url = aids_string_slice_from_parts(iter.str, 0);
+    while (iter.len > 0) {
+        if (markdown_peek(&iter) == ')') {
+            aids_string_slice_skip(&iter, 1);
+            break;
+        } else if (markdown_peek(&iter) == '\"') {
+            aids_string_slice_skip(&iter, 1);
+
+            Aids_String_Slice title = aids_string_slice_from_parts(iter.str, 0);
+            while (iter.len > 0 && markdown_peek(&iter) != '\"') {
+                title.len++;
+                aids_string_slice_skip(&iter, 1);
+            }
+
+            if (markdown_peek(&iter) != '\"') {
+                return false;
+            }
+            aids_string_slice_skip(&iter, 1);
+
+            phrasing_content->image.title = title;
+        } else {
+            url.len++;
+            aids_string_slice_skip(&iter, 1);
+        }
+    }
+
+    phrasing_content->image.url = url;
+    *input = iter;
+
+    return true;
+}
 
 static boolean markdown_try_parse_inline_code(Aids_String_Slice *input, Markdown_Phrasing_Content *phrasing_content) {
     phrasing_content->kind = MD_INLINE_CODE;
@@ -319,7 +393,12 @@ static void markdown_parse_phrasing_content(Aids_String_Slice *input, Markdown_P
     boolean is_text = false;
     char ch = markdown_peek(input);
     char ch2 = markdown_peek2(input);
-    if (ch == '`') {
+    if (ch == '!') {
+        if (markdown_try_parse_image(input, phrasing_content)) {
+            return;
+        }
+        is_text = true;
+    } else if (ch == '`') {
         if (markdown_try_parse_inline_code(input, phrasing_content)) {
             return;
         }
