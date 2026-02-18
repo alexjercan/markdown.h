@@ -23,7 +23,7 @@ static void print_phrasing_content(const Markdown_Phrasing_Content *content, siz
 static void print_children(const Aids_Array *children, size_t indent_level) {
     for (size_t i = 0; i < children->count; i++) {
         Markdown_Phrasing_Content *content = NULL;
-        if (aids_array_get(children, i, (unsigned char **)&content) != AIDS_OK) {
+        if (aids_array_get(children, i, (void **)&content) != AIDS_OK) {
             aids_log(AIDS_ERROR, "Failed to get phrasing content at index %zu", i);
             exit(EXIT_FAILURE);
         }
@@ -105,7 +105,7 @@ static void print_flow_content(const Markdown_Flow_Content *flow_content, size_t
 static void print_root(const Markdown_Root *root, int indent_level) {
     for (size_t i = 0; i < root->children.count; i++) {
         Markdown_Flow_Content *flow_content = NULL;
-        if (aids_array_get(&root->children, i, (unsigned char **)&flow_content) != AIDS_OK) {
+        if (aids_array_get(&root->children, i, (void **)&flow_content) != AIDS_OK) {
             aids_log(AIDS_ERROR, "Failed to get flow content at index %zu", i);
             exit(EXIT_FAILURE);
         }
