@@ -108,6 +108,11 @@ typedef struct {
     Aids_String_Slice value; /* Raw LaTeX content between the $ delimiters */
 } Markdown_Inline_Math; /* Inline: $...$ */
 
+/* FRONTMATTER EXTENSION */
+typedef struct {
+    Aids_String_Slice value; /* Raw content of the frontmatter, excluding the --- delimiters */
+} Markdown_Frontmatter;
+
 typedef enum {
     MD_BLOCKQUOTE,
     MD_CODE,
@@ -117,6 +122,7 @@ typedef enum {
     MD_DEFINITION,
     MD_PARAGRAPH,
     MD_MATH,
+    MD_FRONTMATTER,
 } Markdown_Flow_Content_Kind;
 
 typedef struct {
@@ -130,6 +136,7 @@ typedef struct {
         Markdown_Definition definition;
         Markdown_Paragraph paragraph;
         Markdown_Math math;
+        Markdown_Frontmatter frontmatter;
     };
 } Markdown_Flow_Content;
 
@@ -623,7 +630,7 @@ static void markdown_parse_phrasing_content(Aids_String_Slice *input, Markdown_P
     aids_string_slice_trim(&phrasing_content->text.value);
 }
 
-static void markdown_parse_flow_content(Aids_String_Slice *input, Markdown_Flow_Content *flow_content);
+static void markdown_parse_flow_content(Aids_String_Slice *input, const Aids_Array *children, Markdown_Flow_Content *flow_content);
 
 static boolean markdown_try_parse_code(Aids_String_Slice *input, Markdown_Code *code) {
     Aids_String_Slice iter = *input;
@@ -724,10 +731,47 @@ static boolean markdown_try_parse_blockquote(Aids_String_Slice *input, Markdown_
         markdown_read(input);
 
         Markdown_Flow_Content child_flow_content = {0};
-        markdown_parse_flow_content(input, &child_flow_content);
+        markdown_parse_flow_content(input, &blockquote->children, &child_flow_content);
         AIDS_ASSERT(aids_array_append(&blockquote->children, (unsigned char *)&child_flow_content) == AIDS_OK, aids_failure_reason());
     }
 
+    return true;
+}
+
+static boolean markdown_try_parse_frontmatter(Aids_String_Slice *input, Markdown_Frontmatter *frontmatter) {
+    Aids_String_Slice iter = *input;
+
+    if (markdown_peek(&iter) != '-' || markdown_peek2(&iter) != '-' || markdown_peek3(&iter) != '-') {
+        return false;
+    }
+    aids_string_slice_skip(&iter, 3);
+
+    if (markdown_peek(&iter) != '\n') {
+        return false;
+    }
+    aids_string_slice_skip(&iter, 1);
+
+    Aids_String_Slice value = aids_string_slice_from_parts(iter.str, 0);
+    while (true) {
+        char ch = markdown_peek(&iter);
+        if (ch == (char)EOF) {
+            return false;
+        } else if (ch == '-' && markdown_peek2(&iter) == '-' && markdown_peek3(&iter) == '-') {
+            aids_string_slice_skip(&iter, 3);
+            while (iter.len > 0 && markdown_peek(&iter) != '\n') {
+                aids_string_slice_skip(&iter, 1);
+            }
+            break;
+        } else {
+            value.len++;
+            aids_string_slice_skip(&iter, 1);
+        }
+    }
+
+    aids_string_slice_trim(&value);
+
+    frontmatter->value = value;
+    *input = iter;
     return true;
 }
 
@@ -938,7 +982,7 @@ static boolean markdown_try_parse_definition(Aids_String_Slice *input, Markdown_
     return true;
 }
 
-static void markdown_parse_flow_content(Aids_String_Slice *input, Markdown_Flow_Content *flow_content) {
+static void markdown_parse_flow_content(Aids_String_Slice *input, const Aids_Array *children, Markdown_Flow_Content *flow_content) {
     char ch = markdown_peek(input);
     if (ch == '>') {
         flow_content->kind = MD_BLOCKQUOTE;
@@ -978,13 +1022,18 @@ static void markdown_parse_flow_content(Aids_String_Slice *input, Markdown_Flow_
         }
     } else if (ch == '*' || ch == '-' || ch == '_' || ch == '+' || (ch >= '0' && ch <= '9')) {
         char ch2 = markdown_peek2(input);
+        char ch3 = markdown_peek3(input);
 
         boolean could_be_thematic       = (ch == '*' || ch == '-' || ch == '_');
         boolean could_be_unordered_list = (ch == '*' || ch == '-' || ch == '+')
                                           && (ch2 == ' ' || ch2 == '\t');
         boolean could_be_ordered_list   = (ch >= '0' && ch <= '9');
+        boolean could_be_frontmatter     = (ch == '-' || ch == '*') && ch2 == ch && ch3 == ch;
+        boolean is_first_child = (children->count == 0);
 
-        if (could_be_thematic && markdown_try_parse_thematic_break(input)) {
+        if (could_be_frontmatter && is_first_child && markdown_try_parse_frontmatter(input, &flow_content->frontmatter)) {
+            flow_content->kind = MD_FRONTMATTER;
+        } else if (could_be_thematic && markdown_try_parse_thematic_break(input)) {
             flow_content->kind = MD_THEMATIC_BREAK;
         } else if (could_be_unordered_list || could_be_ordered_list) {
             flow_content->kind = MD_LIST;
@@ -1045,7 +1094,7 @@ MDHDEF void markdown_parse(Aids_String_Slice input, Markdown_Root *root) {
         }
 
         Markdown_Flow_Content flow_content = {0};
-        markdown_parse_flow_content(&input, &flow_content);
+        markdown_parse_flow_content(&input, &root->children, &flow_content);
 
         AIDS_ASSERT(aids_array_append(&root->children, (unsigned char *)&flow_content) == AIDS_OK, aids_failure_reason());
     }
