@@ -4,7 +4,7 @@
 #include "aids.h"
 #include "markdown.h"
 
-#define EXAMPLE_PATH "./example.md"
+#define EXAMPLE_PATH "./README.md"
 
 #define INDENTATION "  "
 
@@ -248,12 +248,18 @@ static void print_root(const Markdown_Root *root, int indent_level) {
     }
 }
 
-int main() {
-    Aids_String_Slice filename = aids_string_slice_from_cstr(EXAMPLE_PATH);
+int main(int argc, char **argv) {
+    const char *filepath = EXAMPLE_PATH;
+
+    if (argc > 1) {
+        filepath = argv[1];
+    }
+
+    Aids_String_Slice filename = aids_string_slice_from_cstr(filepath);
     Aids_String_Slice content = {0};
 
     if (aids_io_read(&filename, &content, "r") != AIDS_OK) {
-        aids_log(AIDS_ERROR, "Failed to read file %s", aids_failure_reason());
+        aids_log(AIDS_ERROR, "Failed to read file %s: %s", filepath, aids_failure_reason());
         exit(1);
     }
 
