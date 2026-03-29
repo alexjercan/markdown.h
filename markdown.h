@@ -328,7 +328,7 @@ static boolean markdown_try_parse_link(Aids_String_Slice *input, Markdown_Phrasi
         Markdown_Phrasing_Content phrasing_content_child = {0};
         markdown_parse_phrasing_content(&content, &phrasing_content_child);
 
-        AIDS_ASSERT(aids_array_append(&phrasing_content->link.children, (unsigned char *)&phrasing_content_child) == AIDS_OK, aids_failure_reason());
+        AIDS_ASSERT(aids_array_append(&phrasing_content->link.children, (unsigned char *)&phrasing_content_child) == AIDS_OK, "%s", aids_failure_reason());
     }
 
     *input = iter;
@@ -369,7 +369,7 @@ static boolean markdown_try_parse_emphasis(Aids_String_Slice *input, Markdown_Ph
         Markdown_Phrasing_Content phrasing_content_child = {0};
         markdown_parse_phrasing_content(&content, &phrasing_content_child);
 
-        AIDS_ASSERT(aids_array_append(&phrasing_content->emphasis.children, (unsigned char *)&phrasing_content_child) == AIDS_OK, aids_failure_reason());
+        AIDS_ASSERT(aids_array_append(&phrasing_content->emphasis.children, (unsigned char *)&phrasing_content_child) == AIDS_OK, "%s", aids_failure_reason());
     }
 
     *input = iter;
@@ -412,7 +412,7 @@ static boolean markdown_try_parse_strong(Aids_String_Slice *input, Markdown_Phra
         Markdown_Phrasing_Content phrasing_content_child = {0};
         markdown_parse_phrasing_content(&content, &phrasing_content_child);
 
-        AIDS_ASSERT(aids_array_append(&phrasing_content->strong.children, (unsigned char *)&phrasing_content_child) == AIDS_OK, aids_failure_reason());
+        AIDS_ASSERT(aids_array_append(&phrasing_content->strong.children, (unsigned char *)&phrasing_content_child) == AIDS_OK, "%s", aids_failure_reason());
     }
 
     *input = iter;
@@ -734,7 +734,7 @@ static boolean markdown_try_parse_blockquote(Aids_String_Slice *input, Markdown_
 
         Markdown_Flow_Content child_flow_content = {0};
         markdown_parse_flow_content(input, &blockquote->children, &child_flow_content);
-        AIDS_ASSERT(aids_array_append(&blockquote->children, (unsigned char *)&child_flow_content) == AIDS_OK, aids_failure_reason());
+        AIDS_ASSERT(aids_array_append(&blockquote->children, (unsigned char *)&child_flow_content) == AIDS_OK, "%s", aids_failure_reason());
     }
 
     return true;
@@ -888,7 +888,7 @@ static boolean markdown_try_parse_list(Aids_String_Slice *input, Markdown_List *
 
             Markdown_Phrasing_Content pc = {0};
             markdown_parse_phrasing_content(&iter, &pc);
-            AIDS_ASSERT(aids_array_append(&child.paragraph.children, (unsigned char *)&pc) == AIDS_OK, aids_failure_reason());
+            AIDS_ASSERT(aids_array_append(&child.paragraph.children, (unsigned char *)&pc) == AIDS_OK, "%s", aids_failure_reason());
         }
 
         if (iter.len > 0 && markdown_peek(&iter) == '\n') {
@@ -915,7 +915,7 @@ static boolean markdown_try_parse_list(Aids_String_Slice *input, Markdown_List *
 
                 Markdown_Phrasing_Content pc = {0};
                 markdown_parse_phrasing_content(&iter, &pc);
-                AIDS_ASSERT(aids_array_append(&child.paragraph.children, (unsigned char *)&pc) == AIDS_OK, aids_failure_reason());
+                AIDS_ASSERT(aids_array_append(&child.paragraph.children, (unsigned char *)&pc) == AIDS_OK, "%s", aids_failure_reason());
             }
 
             if (iter.len > 0 && markdown_peek(&iter) == '\n') {
@@ -923,7 +923,7 @@ static boolean markdown_try_parse_list(Aids_String_Slice *input, Markdown_List *
             }
         }
 
-        AIDS_ASSERT(aids_array_append(&item.children, (unsigned char *)&child) == AIDS_OK, aids_failure_reason());
+        AIDS_ASSERT(aids_array_append(&item.children, (unsigned char *)&child) == AIDS_OK, "%s", aids_failure_reason());
 
         if (iter.len > 0 && markdown_peek(&iter) == '\n') {
             list->spread = true;
@@ -933,7 +933,7 @@ static boolean markdown_try_parse_list(Aids_String_Slice *input, Markdown_List *
             }
         }
 
-        AIDS_ASSERT(aids_array_append(&list->children, (unsigned char *)&item) == AIDS_OK, aids_failure_reason());
+        AIDS_ASSERT(aids_array_append(&list->children, (unsigned char *)&item) == AIDS_OK, "%s", aids_failure_reason());
     }
 
     if (list->children.count == 0) {
@@ -1020,7 +1020,7 @@ static void markdown_parse_flow_content(Aids_String_Slice *input, const Aids_Arr
 
             Markdown_Phrasing_Content phrasing_content = {0};
             markdown_parse_phrasing_content(input, &phrasing_content);
-            AIDS_ASSERT(aids_array_append(&heading->children, (unsigned char *)&phrasing_content) == AIDS_OK, aids_failure_reason());
+            AIDS_ASSERT(aids_array_append(&heading->children, (unsigned char *)&phrasing_content) == AIDS_OK, "%s", aids_failure_reason());
         }
     } else if (ch == '*' || ch == '-' || ch == '_' || ch == '+' || (ch >= '0' && ch <= '9')) {
         char ch2 = markdown_peek2(input);
@@ -1080,7 +1080,7 @@ static void markdown_parse_flow_content(Aids_String_Slice *input, const Aids_Arr
             Markdown_Phrasing_Content phrasing_content = {0};
             markdown_parse_phrasing_content(input, &phrasing_content);
 
-            AIDS_ASSERT(aids_array_append(&paragraph->children, (unsigned char *)&phrasing_content) == AIDS_OK, aids_failure_reason());
+            AIDS_ASSERT(aids_array_append(&paragraph->children, (unsigned char *)&phrasing_content) == AIDS_OK, "%s", aids_failure_reason());
         }
     }
 }
@@ -1098,7 +1098,7 @@ MDHDEF void markdown_parse(Aids_String_Slice input, Markdown_Root *root) {
         Markdown_Flow_Content flow_content = {0};
         markdown_parse_flow_content(&input, &root->children, &flow_content);
 
-        AIDS_ASSERT(aids_array_append(&root->children, (unsigned char *)&flow_content) == AIDS_OK, aids_failure_reason());
+        AIDS_ASSERT(aids_array_append(&root->children, (unsigned char *)&flow_content) == AIDS_OK, "%s", aids_failure_reason());
     }
 }
 
