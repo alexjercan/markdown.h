@@ -1,3 +1,5 @@
+/* markdown.h - A Markdown parser in C based on the mdast specification. */
+
 #ifndef MARKDOWN_H
 #define MARKDOWN_H
 
@@ -1101,3 +1103,21 @@ MDHDEF void markdown_parse(Aids_String_Slice input, Markdown_Root *root) {
 }
 
 #endif // MARKDOWN_IMPLEMENTATION
+
+/*
+    Revision history:
+
+        1.2.0 (2026-03-29): Add support for frontmatter
+        1.1.0 (2026-02-18): Add support for inline math
+        1.0.0 (2025-08-11): Initial implementation based on the CommonMark specification
+*/
+
+/*
+    Version Convention:
+
+        We are following Semantic Versioning 2.0.0 (https://semver.org/). The
+        version number is in the format MAJOR.MINOR.PATCH, where:
+        - MAJOR version is incremented when we make incompatible API changes.
+        - MINOR version is incremented when we add functionality in a backwards-compatible manner.
+        - PATCH version is incremented when we make backwards-compatible bug fixes.
+*/
